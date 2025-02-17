@@ -15,8 +15,8 @@ namespace Profil
 
         static void Main()
         {
-            string computerName = "A0900-KONSKIE";
-            
+            string computerName = "A0900-KONSKIE"; // A3106-SKARZYSKO    A4914-KONSKIE A0900-KONSKIE
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new frmMainForm(computerName));

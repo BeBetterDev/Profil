@@ -35,6 +35,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.DirectoryServices" />
     <Reference Include="System.DirectoryServices.AccountManagement" />
     <Reference Include="System.Management" />
     <Reference Include="System.Xml.Linq" />
@@ -69,6 +70,12 @@
     <Compile Include="frmProfil.Designer.cs">
       <DependentUpon>frmProfil.cs</DependentUpon>
     </Compile>
+    <Compile Include="frm_ProgressBar.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frm_ProgressBar.Designer.cs">
+      <DependentUpon>frm_ProgressBar.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ucRefreshProfile.cs">
@@ -91,6 +98,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="frmProfil.resx">
       <DependentUpon>frmProfil.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm_ProgressBar.resx">
+      <DependentUpon>frm_ProgressBar.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

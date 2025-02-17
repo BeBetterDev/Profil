@@ -36,12 +36,12 @@
             this.label3 = new System.Windows.Forms.Label();
             this.btnRestoreProfilFromCopyToDisc = new System.Windows.Forms.Button();
             this.btnDeleteProfileFromDisc = new System.Windows.Forms.Button();
-            this.button2 = new System.Windows.Forms.Button();
+            this.btnRestoreProfileFromBackupToRegister = new System.Windows.Forms.Button();
             this.lbRegistersProfiles = new System.Windows.Forms.ListBox();
             this.lbDisksProfiles = new System.Windows.Forms.ListBox();
             this.panel2 = new System.Windows.Forms.Panel();
             this.lblPcName = new System.Windows.Forms.Label();
-            this.listBox1 = new System.Windows.Forms.ListBox();
+            this.lbBackups = new System.Windows.Forms.ListBox();
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
@@ -136,21 +136,23 @@
             this.btnDeleteProfileFromDisc.Name = "btnDeleteProfileFromDisc";
             this.btnDeleteProfileFromDisc.Size = new System.Drawing.Size(280, 44);
             this.btnDeleteProfileFromDisc.TabIndex = 50;
-            this.btnDeleteProfileFromDisc.Text = "Usunięcie profilu z dysku";
+            this.btnDeleteProfileFromDisc.Text = "Usunięcie profilu z dysku [ ... ]";
             this.btnDeleteProfileFromDisc.UseVisualStyleBackColor = false;
+            this.btnDeleteProfileFromDisc.Click += new System.EventHandler(this.btnDeleteProfileFromDisc_Click);
             // 
-            // button2
+            // btnRestoreProfileFromBackupToRegister
             // 
-            this.button2.BackColor = System.Drawing.SystemColors.ButtonHighlight;
-            this.button2.FlatAppearance.BorderColor = System.Drawing.SystemColors.ControlDark;
-            this.button2.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button2.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.button2.Location = new System.Drawing.Point(58, 391);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(280, 44);
-            this.button2.TabIndex = 49;
-            this.button2.Text = "Przywrócenie profilu z kopii do rejestru";
-            this.button2.UseVisualStyleBackColor = false;
+            this.btnRestoreProfileFromBackupToRegister.BackColor = System.Drawing.SystemColors.ButtonHighlight;
+            this.btnRestoreProfileFromBackupToRegister.FlatAppearance.BorderColor = System.Drawing.SystemColors.ControlDark;
+            this.btnRestoreProfileFromBackupToRegister.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRestoreProfileFromBackupToRegister.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.btnRestoreProfileFromBackupToRegister.Location = new System.Drawing.Point(58, 391);
+            this.btnRestoreProfileFromBackupToRegister.Name = "btnRestoreProfileFromBackupToRegister";
+            this.btnRestoreProfileFromBackupToRegister.Size = new System.Drawing.Size(280, 44);
+            this.btnRestoreProfileFromBackupToRegister.TabIndex = 49;
+            this.btnRestoreProfileFromBackupToRegister.Text = "Przywrócenie profilu z kopii do rejestru [ ... ]";
+            this.btnRestoreProfileFromBackupToRegister.UseVisualStyleBackColor = false;
+            this.btnRestoreProfileFromBackupToRegister.Click += new System.EventHandler(this.btnRestoreProfileFromBackupToRegister_Click);
             // 
             // lbRegistersProfiles
             // 
@@ -193,15 +195,15 @@
             this.lblPcName.TabIndex = 0;
             this.lblPcName.Text = "Komputer docelowy: A0900-KONSKIE";
             // 
-            // listBox1
+            // lbBackups
             // 
-            this.listBox1.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
-            this.listBox1.FormattingEnabled = true;
-            this.listBox1.ItemHeight = 16;
-            this.listBox1.Location = new System.Drawing.Point(58, 317);
-            this.listBox1.Name = "listBox1";
-            this.listBox1.Size = new System.Drawing.Size(280, 68);
-            this.listBox1.TabIndex = 65;
+            this.lbBackups.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.lbBackups.FormattingEnabled = true;
+            this.lbBackups.ItemHeight = 16;
+            this.lbBackups.Location = new System.Drawing.Point(58, 317);
+            this.lbBackups.Name = "lbBackups";
+            this.lbBackups.Size = new System.Drawing.Size(280, 68);
+            this.lbBackups.TabIndex = 65;
             // 
             // label1
             // 
@@ -241,7 +243,7 @@
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.label1);
-            this.Controls.Add(this.listBox1);
+            this.Controls.Add(this.lbBackups);
             this.Controls.Add(this.panel2);
             this.Controls.Add(this.lblHeader);
             this.Controls.Add(this.label6);
@@ -251,7 +253,7 @@
             this.Controls.Add(this.label3);
             this.Controls.Add(this.btnRestoreProfilFromCopyToDisc);
             this.Controls.Add(this.btnDeleteProfileFromDisc);
-            this.Controls.Add(this.button2);
+            this.Controls.Add(this.btnRestoreProfileFromBackupToRegister);
             this.Controls.Add(this.lbRegistersProfiles);
             this.Controls.Add(this.lbDisksProfiles);
             this.Name = "ucRestoreProfile";
@@ -273,12 +275,12 @@
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Button btnRestoreProfilFromCopyToDisc;
         private System.Windows.Forms.Button btnDeleteProfileFromDisc;
-        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button btnRestoreProfileFromBackupToRegister;
         private System.Windows.Forms.ListBox lbRegistersProfiles;
         private System.Windows.Forms.ListBox lbDisksProfiles;
         private System.Windows.Forms.Panel panel2;
         private System.Windows.Forms.Label lblPcName;
-        private System.Windows.Forms.ListBox listBox1;
+        private System.Windows.Forms.ListBox lbBackups;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label7;

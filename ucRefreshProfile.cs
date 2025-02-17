@@ -15,6 +15,11 @@ using System.Xml.Linq;
 using System.Management;
 using System.DirectoryServices.AccountManagement;
 using static System.Net.Mime.MediaTypeNames;
+using static System.Net.WebRequestMethods;
+using File = System.IO.File;
+using System.DirectoryServices;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using System.Net.NetworkInformation;
 
 namespace Profil
 {
@@ -128,20 +133,20 @@ namespace Profil
         private void btnInwentaryzacja_Click(object sender, EventArgs e)
         {
             string profileName = String.Empty;
-            if (lbDisksProfiles.SelectedItem != null) profileName = lbDisksProfiles.SelectedItem?.ToString();
+            if (lbRegistersProfiles.SelectedItem != null) profileName = lbRegistersProfiles.SelectedItem?.ToString();
             else
             {
                 MessageBox.Show("Nie wybrano Profilu z listy", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            PerformInventory(computerName, profileName);
+            ProfileInventory(computerName, profileName);
         }
 
         private void btnExportProfileFromregister_Click(object sender, EventArgs e)
         {
             string profileName = String.Empty;
-            if (lbDisksProfiles.SelectedItem != null) profileName = lbDisksProfiles.SelectedItem?.ToString();
+            if (lbRegistersProfiles.SelectedItem != null) profileName = lbRegistersProfiles.SelectedItem?.ToString();
             else
             {
                 MessageBox.Show("Nie wybrano Profilu z listy", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -154,12 +159,13 @@ namespace Profil
         private void btnDeleteProfileFromRegister_Click(object sender, EventArgs e)
         {
             string profileName = String.Empty;
-            if (lbDisksProfiles.SelectedItem != null) profileName = lbDisksProfiles.SelectedItem?.ToString();
+            if (lbRegistersProfiles.SelectedItem != null) profileName = lbRegistersProfiles.SelectedItem?.ToString();
             else
             {
                 MessageBox.Show("Nie wybrano Profilu z listy", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            
             DeleteProfileFromRegister(computerName, profileName);
         }
 
@@ -204,23 +210,41 @@ namespace Profil
 
             // Ścieżka docelowa, gdzie skrypty zostaną skopiowane
             string destination = $@"\\{pcName}\c$\Skrypty";
-            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string localScriptsPath = Path.Combine(baseDirectory, "Scripts");
+            string backupDirectory = $@"\\{pcName}\D$";
+            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;//Ścieżka do katalogu głównego programu 
+            string localScriptsPath = Path.Combine(baseDirectory, "Scripts");          //Ścieżka do katalogu ze skryptami w katalogu głównym
+            string psexecPath = Path.Combine(baseDirectory, "Utils", "psexec.exe");// ścieżka do PsExec w katalogu Utils
+            //string backupFilePath = $@"\\{pcName}\d$\profileBackup_{profileName}.reg";  // Ścieżka do pliku kopii zapasowej
+            string backupFilePath = Path.Combine(backupDirectory, $"profileBackup_{ profileName}.reg");  // Ścieżka do pliku kopii zapasowej
 
             // Kopiowanie plików do docelowej lokalizacji
             File.Copy(Path.Combine(localScriptsPath, "reg_backup.ps1"), Path.Combine(destination, "reg_backup.ps1"), true);
             File.Copy(Path.Combine(localScriptsPath, "runReg_backup.cmd"), Path.Combine(destination, "runReg_backup.cmd"), true);
 
-            // Tworzenie pełnych ścieżek do plików
+            //Test czy istnieje juz kopia profilu z rejestru, jesli tak zmienia nazwę
+            if (File.Exists(backupFilePath))
+            {
+                string testNewBackupFile = backupFilePath;
+                while (File.Exists(testNewBackupFile))
+                {
+                    while (testNewBackupFile.EndsWith(".reg"))
+                    {
+                        testNewBackupFile = testNewBackupFile.Substring(0, testNewBackupFile.Length - 4); // Usuwa `.reg` z końca
+                    }
+                    testNewBackupFile = testNewBackupFile + "_old.reg";
+                }
+                File.Move(backupFilePath, testNewBackupFile);
+            }
+
+
+
+            // Tworzenie pełnych ścieżek do plików skryptów na komputerze zdalnym
             string scriptPath = Path.Combine(destination, "reg_backup.ps1");
             string cmdPath = Path.Combine(destination, "runReg_backup.cmd");
 
             // Sprawdzenie, czy pliki istnieją
             if (File.Exists(scriptPath) && File.Exists(cmdPath))
             {
-                // Ustawienie lokalizacji dla PsExec
-                string psexecPath = Path.Combine(baseDirectory, "Utils", "psexec.exe");
-
                 if (File.Exists(psexecPath))
                 {
 
@@ -249,14 +273,11 @@ namespace Profil
                     }
 
                     
-                    //Thread.Sleep(5000);  // Opóźnienie 5 sekund
-
                     // Sprawdzenie, czy plik kopii zapasowej istnieje
 
                     bool backupFileExists = false;
                     int waitSeconds = 0;
                     const int maxWaitSeconds = 15; // Maksymalny czas oczekiwania (w sekundach)
-                    string backupFilePath = $@"\\{pcName}\d$\profileBackup_{profileName}.reg";  // Ścieżka do pliku kopii zapasowej
 
                     // Pętla – sprawdzamy co sekundę przez maksymalnie 60 sekund, czy plik backupu istnieje
                     while (waitSeconds < maxWaitSeconds)
@@ -356,8 +377,8 @@ namespace Profil
                                 if (profileKey.OpenSubKey(profileToDelete) == null)
                                 {
                                     fillListBoxProfilesFromRegister();
-                                    //  restartPcButton.Enabled = true;  Odblokowanie nastepnego klawisza
-
+                                    // Odblokowanie nastepnego klawisza
+                                    btnRestart.Enabled = true;
                                     MessageBox.Show($"Usunięto profil {profileName} SID: {profileToDelete}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                                 else
@@ -402,6 +423,7 @@ namespace Profil
                 process.Start();
                 process.WaitForExit();
 
+                btnCopyProfilOnDisk.Enabled = true;
                 MessageBox.Show($"Polecenie restartu zostało wysłane do komputera {pcName}.", "Zdalny restart komputera", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else if (result == DialogResult.No)
@@ -418,52 +440,49 @@ namespace Profil
 
             try
             {
-              //  if (lbDisksProfiles.SelectedItem != null)
-               // {
-                    string profilePath = Path.Combine(profilesFolder, profile);
+                string profilePath = Path.Combine(profilesFolder, profile);
 
-                    // Sprawdzenie, czy katalog profilu istnieje
+                // Sprawdzenie, czy katalog profilu istnieje
+                if (Directory.Exists(profilePath))
+                {
+                    string newProfilePath = profilePath + "_old";
+
+                    if (Directory.Exists(newProfilePath)) //Jeżeli istnieje katalog z profilem o nazwie jak nowa nazwa należy utworzyc nazwę z kolejnym _old
+                    {
+                        string testNewProfilPath = newProfilePath;
+                        while (Directory.Exists(testNewProfilPath))
+                        {
+                            testNewProfilPath = testNewProfilPath + "_old";
+                        }
+                        fillListBoxProfilesFromDisk();
+                        MessageBox.Show($"Na dysku istnieje już profil  o nazwie {newProfilePath}\n utworzona kopia profilu ma nazwę {testNewProfilPath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        newProfilePath = testNewProfilPath;
+                    }
+
+
+
+                    // Zmiana nazwy katalogu profilu
+                    Directory.Move(profilePath, newProfilePath);
+
+                    System.Threading.Thread.Sleep(2000); // Odpowiednik Start-Sleep
+
+                    // Sprawdzenie, czy katalog został przeniesiony
                     if (Directory.Exists(profilePath))
                     {
-                        string newProfilePath = profilePath + "_old";
-
-                        if (Directory.Exists(newProfilePath)) //Jeżeli istnieje katalog z profilem o nazwie jak nowa nazwa należy utworzyc nazwę z kolejnym _old
-                        {
-                            string testNewProfilPath = newProfilePath;
-                            while (Directory.Exists(testNewProfilPath))
-                            {
-                                testNewProfilPath = testNewProfilPath + "_old";
-                            }
-                            fillListBoxProfilesFromDisk();
-                            MessageBox.Show($"Na dysku istnieje już profil  o nazwie {newProfilePath}\n utworzona kopia profilu ma nazwę {testNewProfilPath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            newProfilePath = testNewProfilPath;
-                        }
-
-
-
-                        // Zmiana nazwy katalogu profilu
-                        Directory.Move(profilePath, newProfilePath);
-                        System.Threading.Thread.Sleep(2000); // Odpowiednik Start-Sleep
-
-                        //restoreDataButton.Enabled = true; odblokowanie nastepnego klawisza
-
-                        // Sprawdzenie, czy katalog został przeniesiony
-                        if (Directory.Exists(profilePath))
-                        {
-                            MessageBox.Show("Przerwano wykonywanie kopii profilu", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            fillListBoxProfilesFromDisk();
-                            //ResetComboBox();
-                        }
-                        else
-                        {
-                            fillListBoxProfilesFromDisk();
-                            MessageBox.Show($"Zmieniono nazwę katalogu z profilem na {newProfilePath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
+                        MessageBox.Show("Przerwano wykonywanie kopii profilu", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        fillListBoxProfilesFromDisk();
                     }
                     else
                     {
-                        MessageBox.Show($"Nie znaleziono profilu na dysku na komputerze {pcName}.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        fillListBoxProfilesFromDisk();
+                        btnRestoreUserData.Enabled = true;
+                        MessageBox.Show($"Zmieniono nazwę katalogu z profilem na {newProfilePath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
+                }
+                else
+                {
+                    MessageBox.Show($"Nie znaleziono profilu na dysku na komputerze {pcName}.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
 
 
             }
@@ -476,7 +495,7 @@ namespace Profil
         }
 
 
-        private void RestoreDataOnDisk(string pcName, string profileOld)
+        async private void RestoreDataOnDisk(string pcName, string profileOld)
         {
 
             try
@@ -492,10 +511,10 @@ namespace Profil
                 // Nowa nazwa profilu - bez `_old`
                 // Usuń wszystkie wystąpienia `_old` tylko na końcu nazwy
                 // Dopóki nazwa kończy się `_old`, usuwaj `_old` z końca
-
+                profileNew = profileOld;
                 while (profileNew.EndsWith("_old"))
                 {
-                    profileNew = profileNew.Substring(0, profileNew.Length - 4); // Usuwa `_old` z końca
+                    profileNew = profileOld.Substring(0, profileOld.Length - 4); // Usuwa `_old` z końca
                 }
 
                 // Sprawdzanie istnienia ścieżek profilu
@@ -530,10 +549,6 @@ namespace Profil
 
                     if (File.Exists(script1) && File.Exists(script2))
                     {
-                        Console.WriteLine($"Przywracam dane do nowo utworzonego profilu: {profileNew}\n");
-                        Console.WriteLine("W zależności od ilości plików i ich rozmiaru może to potrwać długo.");
-                        Console.WriteLine("Nie zamykaj okna konsoli...\n");
-
 
                         string psexecPath = Path.Combine(baseDirectory, "Utils", "psexec.exe");
                         // Uruchomienie PsExec do wykonania skryptu na zdalnym komputerze
@@ -567,71 +582,112 @@ namespace Profil
 
                         // Oczekiwane pliki
                         string[] testFiles = { "Documents.txt", "Desktop.txt", "Downloads.txt", "Favorites.txt", "Common.txt", "Podpisy.txt", "finish.txt" };
-                       
-                        //Console.WriteLine("\nProszę czekać na informację o zakończeniu kopiowania...\nNie zamykaj okna konsoli...\n");
 
+                        frm_ProgressBar frmProgressBar = new frm_ProgressBar("Przywracanie danych użytkownika");
+                        frmProgressBar.Show();
+                        frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Przywracam Dokumenty..."; frmProgressBar.Refresh(); }));
                         bool continueLoop = true;
 
-                        // Pętla oczekująca na pliki sygnalizujące zakończenie kopiowania
-                        while (continueLoop)
+
+                        List<Task> tasks = new List<Task>();
+
+                        tasks.Add(Task.Run(async () =>
                         {
-                            foreach (string file in testFiles)
+
+                            // Pętla oczekująca na pliki sygnalizujące zakończenie kopiowania
+                            while (continueLoop)
                             {
-                                string filePath = Path.Combine(destination, file);
-
-                                if (File.Exists(filePath))
+                                foreach (string file in testFiles)
                                 {
-                                    switch (file)
+                                    string filePath = Path.Combine(destination, file);
+
+                                    if (File.Exists(filePath))
                                     {
-                                        case "Documents.txt":
-                                            if (!documents) { documents = true; Console.WriteLine("Skopiowałem Dokumenty"); }
-                                            break;
-                                        case "Desktop.txt":
-                                            if (!desktop) { desktop = true; Console.WriteLine("Skopiowałem Pulpit"); }
-                                            break;
-                                        case "Downloads.txt":
-                                            if (!downloads) { downloads = true; Console.WriteLine("Skopiowałem Pobrane"); }
-                                            break;
-                                        case "Favorites.txt":
-                                            if (!favorites) { favorites = true; Console.WriteLine("Skopiowałem Ulubione"); }
-                                            break;
-                                        case "Common.txt":
-                                            if (!common) { common = true; Console.WriteLine("Skopiowałem konfigurację SAP"); }
-                                            break;
-                                        case "Podpisy.txt":
-                                            if (!signatures) { signatures = true; Console.WriteLine("Skopiowałem podpisy z poczty"); }
-                                            break;
-                                        case "finish.txt":
-                                            if (!finish)
-                                            {
-                                                finish = true;
-
-                                                // Usunięcie plików sygnalizujących zakończenie
-                                                foreach (string finishFile in testFiles)
+                                        switch (file)
+                                        {
+                                            case "Documents.txt":
+                                                if (!documents)
                                                 {
-                                                    string finishFilePath = Path.Combine(destination, finishFile);
-                                                    if (File.Exists(finishFilePath))
-                                                    {
-                                                        File.Delete(finishFilePath);
-                                                    }
+                                                    documents = true;
+                                                    frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Przywracam Pulpit..."; frmProgressBar.Refresh(); }));
                                                 }
-
-                                                // Wywołanie funkcji do usuwania skryptów
-
-                                                DeleteScriptsFromCSkrypty(computerName);
-
-                                                MessageBox.Show("Kopiowanie zostało zakończone", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                                                continueLoop = false;
                                                 break;
-                                            }
-                                            break;
+                                            case "Desktop.txt":
+                                                if (!desktop)
+                                                {
+                                                    desktop = true;
+                                                    frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Przywracam Pobrane..."; frmProgressBar.Refresh(); }));
+                                                }
+                                                break;
+                                            case "Downloads.txt":
+                                                if (!downloads)
+                                                {
+                                                    downloads = true;
+                                                    frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Przywracam Ulubione..."; frmProgressBar.Refresh(); }));
+                                                }
+                                                break;
+                                            case "Favorites.txt":
+                                                if (!favorites)
+                                                {
+                                                    favorites = true;
+                                                    frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Przywracam konfigurację SAP..."; frmProgressBar.Refresh(); }));
+                                                }
+                                                break;
+                                            case "Common.txt":
+                                                if (!common)
+                                                {
+                                                    common = true;
+                                                    frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Przywracam plik z podpisami z poczty..."; frmProgressBar.Refresh(); }));
+                                                }
+                                                break;
+                                            case "Podpisy.txt":
+                                                if (!signatures)
+                                                {
+                                                    signatures = true;
+                                                }
+                                                break;
+                                            case "finish.txt":
+                                                if (!finish)
+                                                {
+                                                    finish = true;
+
+                                                    // Usunięcie plików sygnalizujących zakończenie
+                                                    foreach (string finishFile in testFiles)
+                                                    {
+                                                        string finishFilePath = Path.Combine(destination, finishFile);
+                                                        if (File.Exists(finishFilePath))
+                                                        {
+                                                            File.Delete(finishFilePath);
+                                                        }
+                                                    }
+
+                                                    // Wywołanie funkcji do usuwania skryptów
+
+                                                    DeleteScriptsFromCSkrypty(computerName);
+
+                                                    //frmProgressBar.Close();
+                                                    //MessageBox.Show("Przywracanie danych z kopii zostało zakończone", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                                    continueLoop = false;
+                                                    break;
+                                                }
+                                                break;
+                                        }
                                     }
                                 }
-                            }
 
-                            // Czekanie przed kolejną iteracją
-                            Thread.Sleep(2000);
+                                // Czekanie przed kolejną iteracją
+                                Thread.Sleep(2000);
+                            }
+                        }));
+
+                        await Task.WhenAll(tasks);
+
+                        if (finish)
+                        {
+                            frmProgressBar.Close();
+                            MessageBox.Show("Przywracanie danych z kopii zostało zakończone", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
+
                     }
                     else
                     {
@@ -685,7 +741,7 @@ namespace Profil
         }
 
 
-        private void PerformInventory(string pcName, string profileName)
+        async private void ProfileInventory(string pcName, string profileName)
         {
 
             string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -726,58 +782,91 @@ namespace Profil
                 return;
             }
 
+            File.AppendAllText(inventoryFilePath, "Komputer: " + computerName + "\r");
+            File.AppendAllText(inventoryFilePath, "Login zalogowanego użytkownika: " + profileName + "\r");
 
             // Pobranie informacji z AD
             string adUserInfo = GetAdUserInfo(profileName);
+
             if (!string.IsNullOrEmpty(adUserInfo))
             {
-                File.AppendAllText(inventoryFilePath, adUserInfo + Environment.NewLine);
-                Console.WriteLine(adUserInfo);
+                File.AppendAllText(inventoryFilePath, adUserInfo + "\r \r \r \n");
             }
 
-            // Lista plików do sprawdzenia
-            string[] filesToCheck = {
-            $@"\\{pcName}\C$\users\{profileName}\decyzje.conf",
-            $@"\\{pcName}\C$\users\{profileName}\AppData\Roaming\SAP\Common\saplogon.ini",
-            $@"\\{pcName}\C$\APPKSI\ZBSYNCH\EMIR_JL.jar",
-            $@"\\{pcName}\c$\users\{profileName}\AppData\Local\Packages\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\AC\MicrosoftEdge\User\Default\DataStore\Data\nouser1\120712-0049\DBStore\Spartan.edb",
-            $@"\\{pcName}\c$\users\{profileName}\AppData\Local\Google\Chrome\User Data\Default\bookmarks",
-            $@"\\{pcName}\c$\Users\{profileName}\AppData\Roaming\Microsoft\Sticky Notes\StickyNotes.snt"
-        };
+            frm_ProgressBar frmProgressBar = new frm_ProgressBar("Inwentaryzacja profilu");
+            frmProgressBar.Show();
 
-            // Sprawdzenie istnienia plików i zapis do raportu
-            foreach (string filePath in filesToCheck)
+            List<Task> tasks = new List<Task>();
+
+            tasks.Add(Task.Run(async () =>
             {
-                if (File.Exists(filePath))
-                {
-                    string fileName = Path.GetFileName(filePath);
-                    string message = GetFileCheckMessage(fileName);
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję pliki konfiguracyjne"; frmProgressBar.Refresh(); }));
+                File.AppendAllText(inventoryFilePath, "Inwentaryzacja znalezionych plików i folderów na profilu " + "\r");
+                File.AppendAllText(inventoryFilePath, "___________________________________________ " + "\r \r");
 
-                    if (!string.IsNullOrEmpty(message))
+                // Lista plików do sprawdzenia
+                string[] filesToCheck = {
+                $@"\\{pcName}\C$\users\{profileName}\decyzje.conf",
+                $@"\\{pcName}\C$\users\{profileName}\Adapter_SSO\config.xml",
+                $@"\\{pcName}\C$\users\{profileName}\AppData\Roaming\SAP\Common\saplogon.ini",
+                $@"\\{pcName}\C$\APPKSI\ZBSYNCH\EMIR_JL.jar",
+                $@"\\{pcName}\c$\users\{profileName}\AppData\Local\Packages\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\AC\MicrosoftEdge\User\Default\DataStore\Data\nouser1\120712-0049\DBStore\Spartan.edb",
+                $@"\\{pcName}\c$\users\{profileName}\AppData\Local\Google\Chrome\User Data\Default\bookmarks",
+                $@"\\{pcName}\c$\Users\{profileName}\AppData\Roaming\Microsoft\Sticky Notes\StickyNotes.snt"
+                };
+
+                // Sprawdzenie istnienia plików i zapis do raportu
+                foreach (string filePath in filesToCheck)
+                {
+                    if (File.Exists(filePath))
                     {
-                        //Console.WriteLine(message);
-                        File.AppendAllText(inventoryFilePath, message + Environment.NewLine);
+                        string fileName = Path.GetFileName(filePath);
+                        string message = GetFileCheckMessage(fileName);
+
+                        if (!string.IsNullOrEmpty(message))
+                        {
+                            File.AppendAllText(inventoryFilePath, message + "\r \n");
+                        }
                     }
                 }
-            }
 
-            // Pomiar rozmiaru folderów
-            //Console.WriteLine("Rozpoczynam pomiar wielkości folderów w profilu...");
-            MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Desktop", inventoryFilePath);
-            MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Favorites", inventoryFilePath);
-            MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Downloads", inventoryFilePath);
-            MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Pictures", inventoryFilePath);
-            MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Documents", inventoryFilePath);
-            MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Appdata\Local\Microsoft\Outlook", inventoryFilePath);
+                // Pomiar rozmiaru folderów
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję Pulpit...";frmProgressBar.Refresh(); }));
+                MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Desktop", inventoryFilePath);
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję Ulubione..."; frmProgressBar.Refresh(); }));
+                MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Favorites", inventoryFilePath);
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję Pobrane..."; frmProgressBar.Refresh(); }));
+                MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Downloads", inventoryFilePath);
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję Zdjęcia..."; frmProgressBar.Refresh(); }));
+                MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Pictures", inventoryFilePath);
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję Dokumenty..."; frmProgressBar.Refresh(); }));
+                MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Documents", inventoryFilePath);
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.lblAction.Text = "Inwentaryzuję Pocztę..."; frmProgressBar.Refresh(); }));
+                MeasureFolderSize($@"\\{pcName}\c$\users\{profileName}\Appdata\Local\Microsoft\Outlook", inventoryFilePath);
 
-            MessageBox.Show("Skończyłem pomiar rozmiaru folderów w profilu.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                File.AppendAllText(inventoryFilePath, "\r \n");
+
+                frmProgressBar.Invoke((Action)(() => { frmProgressBar.Close(); }));
+            }));
+
+            await Task.WhenAll(tasks);
+
 
             // Pobranie drukarek z rejestru
+            File.AppendAllText(inventoryFilePath, "Informacje o drukarkach użytkownika... \r");
+            File.AppendAllText(inventoryFilePath, "___________________________________________ " + "\r\r");
+
             string printersInfo = GetPrintersInfo(pcName, profileName);
             File.AppendAllText(inventoryFilePath, printersInfo);
 
-            // Otworzenie pliku raportu
+
+            frmProgressBar.Close();
+
+            MessageBox.Show("Skończyłem Inwentaryzację profilu.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
             btnExportProfileFromregister.Enabled = true;
+
+            // Otworzenie pliku raportu
             Process.Start("notepad.exe", inventoryFilePath);
         }
 
@@ -785,23 +874,113 @@ namespace Profil
 
         private void MeasureFolderSize(string folderPath, string reportFilePath)
         {
+            long size = 0;
+            int fileCount = 0;
             try
-            {
+            {              
                 if (Directory.Exists(folderPath))
                 {
-                    long size = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
-                    int fileCount = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories).Length;
+                    try //zabezpieczenie przed linkai symbolicznymi
+                    {
+                        DirectoryInfo dir = new DirectoryInfo(folderPath); 
+                        size = dir.GetFiles("*.*", SearchOption.AllDirectories).Sum(file => file.Length);
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        size = GetDirectorySize(folderPath);
+                    }
+
+                    try //zabezpieczenie przed linkai symbolicznymi
+                    {
+                        fileCount = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories).Length;
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        fileCount = CountFilesInDirectory(folderPath);
+                    }
+
                     double sizeInGb = size / (1024.0 * 1024.0 * 1024.0);
                     string message = $"{folderPath} Rozmiar folderu (GB) = {sizeInGb:N2}, Ilość plików = {fileCount}";
-                    //Console.WriteLine(message);
                     File.AppendAllText(reportFilePath, message + Environment.NewLine);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Błąd podczas pomiaru rozmiaru folderu {folderPath}: {ex.Message}");
+                MessageBox.Show($"Błąd podczas pomiaru rozmiaru folderu {folderPath}: {ex.Message}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
+
+        private static int CountFilesInDirectory(string directoryPath)
+        {
+            int fileCount = 0;
+
+            try
+            {
+                // Zlicz pliki w bieżącym katalogu
+                fileCount += Directory.GetFiles(directoryPath).Length;
+
+                // Przeglądaj podkatalogi
+                foreach (string subDirectory in Directory.GetDirectories(directoryPath))
+                {
+                    // Pobierz atrybuty podkatalogu
+                    FileAttributes attributes = File.GetAttributes(subDirectory);
+
+                    // Pomijaj symboliczne linki (ReparsePoint) oraz katalogi, które chcemy wykluczyć
+                    if ((attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    {
+                        continue;
+                    }
+
+                    // Rekurencyjnie zlicz pliki w podkatalogu
+                    fileCount += CountFilesInDirectory(subDirectory);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Obsługa wyjątków np. braku uprawnień dostępu
+                MessageBox.Show($"Błąd podczas pomiaru rozmiaru folderu {directoryPath}: {ex.Message}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            return fileCount;
+        }
+
+        private static long GetDirectorySize(string directoryPath)
+        {
+            long totalSize = 0;
+
+            try
+            {
+                // Zlicz rozmiar wszystkich plików w bieżącym katalogu
+                foreach (string filePath in Directory.GetFiles(directoryPath))
+                {
+                    totalSize += new FileInfo(filePath).Length; // Pobierz rozmiar pliku
+                }
+
+                // Przeglądaj podkatalogi
+                foreach (string subDirectory in Directory.GetDirectories(directoryPath))
+                {
+                    // Pobierz atrybuty podkatalogu
+                    FileAttributes attributes = File.GetAttributes(subDirectory);
+
+                    // Pomijaj symboliczne linki (ReparsePoint) oraz katalogi do wykluczenia
+                    if ((attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    {
+                        continue;
+                    }
+
+                    // Rekurencyjnie oblicz rozmiar podkatalogu
+                    totalSize += GetDirectorySize(subDirectory);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Obsługa wyjątków np. braku uprawnień dostępu
+                MessageBox.Show($"Błąd podczas przetwarzania katalogu {directoryPath}: {ex.Message}", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return totalSize;
+        }
+
 
 
         private static string GetLoggedUserName(string pcName)
@@ -815,8 +994,9 @@ namespace Profil
                     return query?["UserName"]?.ToString();
                 }
             }
-            catch
+            catch(Exception ex)
             {
+                MessageBox.Show("Błąd podczas sprawdzania zalogowanego użytkownika", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return string.Empty;
             }
         }
@@ -845,40 +1025,94 @@ namespace Profil
         }
         private static string GetPrintersInfo(string pcName, string profileName)
         {
-            return "Informacje o drukarkach użytkownika...";
+            try
+            {
+                string userName = profileName;
+
+                string userProfilePrinters = $"Drukarki sieciowe zainstalowane na profilu użytkownika:";
+
+                var adObj = new System.Security.Principal.NTAccount(userName);
+                var strSID = adObj.Translate(typeof(System.Security.Principal.SecurityIdentifier)).ToString();
+                var rootKey = $@"{strSID}\Printers\Connections";
+
+                using (var registry = RegistryKey.OpenRemoteBaseKey(RegistryHive.Users, pcName))
+                {
+                    var printersKey = registry.OpenSubKey(rootKey);
+                    if (printersKey != null)
+                    {
+                        foreach (var subKeyName in printersKey.GetSubKeyNames())
+                        {
+                            userProfilePrinters += $"\r\n{subKeyName.Replace(',', '\\')}";
+                        }
+                    }
+                    else
+                    {
+                        userProfilePrinters += "\r\nBrak zainstalowanych drukarek.";
+                    }
+
+                    using (var regKey = registry.OpenSubKey($@"{strSID}\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows"))
+                    {
+                        if (regKey != null && regKey.GetValue("Device") != null)
+                        {
+                            var regValue = regKey.GetValue("Device").ToString();
+                            regValue = regValue.Split(',')[0].Trim();
+                            userProfilePrinters += $"\r\n\r\nDrukarka domyślna:\r\n{regValue}";
+                        }
+                        else
+                        {
+                            userProfilePrinters += "\r\n\r\nBrak ustawionej drukarki domyślnej.";
+                        }
+
+                        return userProfilePrinters;
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                MessageBox.Show("Brak uprawnień do odczytu rejestru na zdalnym komputerze.", "Błąd dostępu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return "Błąd odczytu drukarek użytkownika";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Wystąpił błąd: " + ex.Message, "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return "Błąd odczytu drukarek użytkownika" + ex.Message;
+            }
+
         }
 
         private static string GetAdUserInfo(string profileName)
         {
-
             try
             {
-                // Użycie kontekstu domeny dla wyszukiwania użytkownika
-                using (PrincipalContext domainContext = new PrincipalContext(ContextType.Domain))
+                PrincipalContext context = new PrincipalContext(ContextType.Domain, "zus.ad");
+                UserPrincipal userPrincipal = UserPrincipal.FindByIdentity(context, profileName);
+                if (userPrincipal == null)
                 {
-                    // Wyszukanie użytkownika w AD na podstawie nazwy profilu
-                    UserPrincipal user = UserPrincipal.FindByIdentity(domainContext, profileName);
-
-                    if (user != null)
-                    {
-                        // Zbieranie potrzebnych informacji o użytkowniku
-                        string givenName = user.GivenName ?? "Brak imienia";
-                        string surname = user.Surname ?? "Brak nazwiska";
-                        string telephone = user.VoiceTelephoneNumber ?? "Brak numeru telefonu";
-
-                        //string department = user.Department ?? "Brak działu";
-                        string department = "Do uzupełnienia !!!";
-
-
-                        // Tworzenie i zwracanie sformatowanego wyniku
-                        string userInfo = $"Imię: {givenName}, Nazwisko: {surname}, Telefon: {telephone}, Dział: {department}";
-                        return userInfo;
-                    }
-                    else
-                    {
-                        return "Nie znaleziono użytkownika w Active Directory.";
-                    }
+                    MessageBox.Show("Użytkownik '" + profileName + "' nie został znaleziony w AD.");
+                    return null;
                 }
+
+                string givenName = userPrincipal.GivenName ?? "Brak imienia w AD";
+                string surname = userPrincipal.Surname ?? "Brak nazwiska w AD";
+                string telephone = userPrincipal.VoiceTelephoneNumber ?? "Brak numeru telefonu w AD";
+                string department = String.Empty;
+
+                if (userPrincipal.GetUnderlyingObjectType() == typeof(DirectoryEntry))
+                {
+                    DirectoryEntry directoryEntry = (DirectoryEntry)userPrincipal.GetUnderlyingObject();
+
+                    if (directoryEntry.Properties.Contains("department") && directoryEntry.Properties["department"] != null)
+                    {
+                        department = directoryEntry.Properties["department"].Value.ToString();
+                    }
+                    else 
+                    { 
+                        department = "brak w AD";
+                    }
+                    
+                }
+                string userInfo = $"Imię: {givenName}, Nazwisko: {surname}, Telefon: {telephone}, Dział: {department}";
+                return userInfo;
             }
             catch (Exception ex)
             {

@@ -3,10 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml.Linq;
@@ -30,9 +32,19 @@ namespace Profil
 
 
 
+
+
         private void btnDeleteProfileFromRegister_tabPrzywracanie_Click(object sender, EventArgs e)
         {
-            DeleteProfileFromRegister(computerName);
+            string profileName = String.Empty;
+            if (lbRegistersProfiles.SelectedItem != null) profileName = lbRegistersProfiles.SelectedItem?.ToString();
+            else
+            {
+                MessageBox.Show("Nie wybrano Profilu z listy", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            DeleteProfileFromRegister(computerName, profileName);
         }
 
 
@@ -122,29 +134,23 @@ namespace Profil
         private void fillListBoxProfilesFromRegister()
         {
             List<string> profilesFromRegister = ReadProfilesFromRegister(computerName);
-            lbRegistersProfiles.Items.Clear();                      // Czyszczenie ListBox przed załadowaniem nowych danych
+            lbRegistersProfiles.Items.Clear();         // Czyszczenie ListBox przed załadowaniem nowych danych
             lbRegistersProfiles.Items.AddRange(profilesFromRegister.ToArray()); // Dodawanie profili do ListBox
         }
 
         private void fillListBoxProfilesFromDisk()
         {
             List<string> profilesFromDisk = ReadProfilesFromDisk(computerName);
-            lbDisksProfiles.Items.Clear();              // Czyszczenie ListBox przed załadowaniem nowych danych
-            lbDisksProfiles.Items.AddRange(profilesFromDisk.ToArray());              // Dodawanie profili do ListBox
+            lbDisksProfiles.Items.Clear();   // Czyszczenie ListBox przed załadowaniem nowych danych
+            lbDisksProfiles.Items.AddRange(profilesFromDisk.ToArray());  // Dodawanie profili do ListBox
         }
 
 
 
 
 
-        private void DeleteProfileFromRegister(string pcName)
+        private void DeleteProfileFromRegister(string pcName, string profileName)
         {
-            string profileName = lbRegistersProfiles.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(profileName))
-            {
-                MessageBox.Show("Nie wybrano profilu do usunięcia.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
 
             DialogResult result = MessageBox.Show($"Czy jesteś pewien, że chcesz usunąć profil {profileName} z rejestru na komputerze {pcName}?", "Potwierdzenie usunięcia profilu z rejestru", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result == DialogResult.Yes)
@@ -246,7 +252,6 @@ namespace Profil
                 string oldProfilePath = Path.Combine(profilesFolder, profile);
 
                 // Usuń wszystkie wystąpienia `_old` tylko na końcu nazwy
-
                 // Dopóki nazwa kończy się `_old`, usuwaj `_old` z końca
                 string newProfileName = profile;
                 while (newProfileName.EndsWith("_old"))
@@ -260,7 +265,7 @@ namespace Profil
                 {
                     fillListBoxProfilesFromDisk();
                     MessageBox.Show($"Na dysku istnieje już profil  o nazwie {newProfilePath} \n jeżeli rzeczywiście chcesz przywrócić go z kopii musisz najpierw usunąć poprzedni folder", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return ;
+                    return;
                 }
 
 
@@ -272,14 +277,14 @@ namespace Profil
                     if (Directory.Exists(oldProfilePath))
                     {
                         fillListBoxProfilesFromDisk();
-                        MessageBox.Show("Przerwano operację przywracania profilu", "Informacja", MessageBoxButtons.OK,MessageBoxIcon.Information);
-                        return ;
+                        MessageBox.Show("Przerwano operację przywracania profilu", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
                     }
 
                     if (Directory.Exists(newProfilePath))
                     {
                         fillListBoxProfilesFromDisk();
-                        MessageBox.Show($"Zmieniono nazwę katalogu z profilem na {newProfilePath}", "Informacja", MessageBoxButtons.OK,MessageBoxIcon.Information);
+                        MessageBox.Show($"Zmieniono nazwę katalogu z profilem na {newProfilePath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
                 else
@@ -294,6 +299,251 @@ namespace Profil
             }
         }
 
+        private void btnRestoreProfileFromBackupToRegister_Click(object sender, EventArgs e)
+        {
+            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;//Ścieżka do katalogu głównego programu 
+            string localScriptsPath = Path.Combine(baseDirectory, "Scripts");          //Ścieżka do katalogu ze skryptami w katalogu głównym
+            string psexecPath = Path.Combine(baseDirectory, "Utils", "psexec.exe");// ścieżka do PsExec w katalogu Utils
+
+            // Test czy zaznaczono plik kopi do importu
+            if (lbBackups.SelectedItem == null)
+            {
+                MessageBox.Show("Nie wybrano pliku kopii zapasowej profilu z rejestru.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+
+            string restoreFileName = lbBackups.SelectedItem.ToString();
+            string destination = $@"\\{computerName}\c$\Skrypty";
+
+            try
+            {
+
+                string path1 = Path.Combine(destination, "reg_restore.cmd");
+                string path2 = Path.Combine(destination, "reg_restore.ps1");
+
+                // Kopiowanie plików skryptów do katalogu docelowego na zdalnym komputerze
+                File.Copy(Path.Combine(localScriptsPath, "reg_restore.cmd"), path1, true);
+                File.Copy(Path.Combine(localScriptsPath, "reg_restore.ps1"), path2, true);
+
+                // Sprawdzenie, czy pliki istnieją w miejscu docelowym
+                if (File.Exists(path1) && File.Exists(path2))
+                {
+
+                    // Uruchomienie PsExec do przywrócenia kopii rejestru na zdalnym komputerze
+                    //RunPsExec(pcName, destination, restoreFileName);
+
+                    try
+                    {
+                        Process psexecProcess = new Process();
+                        psexecProcess.StartInfo.FileName = "PsExec.exe";
+                        psexecProcess.StartInfo.Arguments = $"-nobanner -accepteula -i -s \\\\{computerName} -w C:\\Skrypty\\ cmd.exe /c reg_restore.cmd {restoreFileName}";
+                        psexecProcess.StartInfo.UseShellExecute = false;
+                        psexecProcess.StartInfo.CreateNoWindow = true;
+                        psexecProcess.Start();
+                        psexecProcess.WaitForExit();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Błąd podczas uruchamiania PsExec: {ex.Message}");
+                    }
+
+
+
+                    // Oczekiwanie na zakończenie operacji
+                    System.Threading.Thread.Sleep(2000);
+
+
+                    Console.WriteLine($"Zaimportowano profil {restoreFileName}");
+
+
+                    // Odświeżenie listy profili
+                    // ReadProfilesFromRegister();
+
+                    // Resetowanie ComboBoxów
+                    //ResetComboBox(objComboboxRegProfileList);
+                    fillListBoxProfilesFromRegister();
+                    //ResetComboBox(objComboboxRegBackupList);
+                    fillListBoxProfilesFromDisk();
+                }
+                else
+                {
+
+                    Console.WriteLine("Nie udało się uruchomić skryptu.");
+
+
+                    //ReadProfilesFromRegister();
+                    //ResetComboBox(objComboboxRegProfileList);
+                    fillListBoxProfilesFromRegister();
+                }
+            }
+            catch (Exception ex)
+            {
+
+                Console.WriteLine($"Błąd podczas przywracania profilu rejestru: {ex.Message}");
+
+            }
+
+        }
+
+        private void btnDeleteProfileFromDisc_Click(object sender, EventArgs e)
+        {
+
+            string profileName = String.Empty;
+            if (lbDisksProfiles.SelectedItem != null) profileName = lbDisksProfiles.SelectedItem?.ToString();
+            else
+            {
+                MessageBox.Show("Nie wybrano z listy profilu do usunięcia", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            DeleteprofileFromDisc(computerName, profileName);
+
+        }
+
+
+        private void DeleteprofileFromDisc(string pcName, string profile)
+        {
+
+            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;//Ścieżka do katalogu głównego programu 
+            string localScriptsPath = Path.Combine(baseDirectory, "Scripts");          //Ścieżka do katalogu ze skryptami w katalogu głównym
+            string psexecPath = Path.Combine(baseDirectory, "Utils", "psexec.exe");// ścieżka do PsExec w katalogu Utils
+
+            DialogResult result = MessageBox.Show($"Czy jesteś pewien, że chcesz usunąć profil {profile} \nz dysku na komputerze {pcName}?", "Potwierdzenie usunięcia profilu z dysku", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    string profilePath = Path.Combine(profilesFolder, profile);
+                    string destination = $@"\\{pcName}\c$\Skrypty";
+
+                    if (Directory.Exists(profilePath))
+                    {
+
+                        string pathCmd = Path.Combine(destination, "run_deleteProfileFolder.cmd");
+                        string pathPs1 = Path.Combine(destination, "deleteProfileFolder.ps1");
+
+
+                        // Kopiowanie skryptów do zdalnej lokalizacji
+                        File.Copy(Path.Combine(localScriptsPath, "run_deleteProfileFolder.cmd"), pathCmd, true);
+                        File.Copy(Path.Combine(localScriptsPath, "deleteProfileFolder.ps1"), pathPs1, true);
+
+
+
+                        if (File.Exists(pathCmd) && File.Exists(pathPs1))
+                        {
+                            frm_ProgressBar frmProgressBar = new frm_ProgressBar("Usuwanie profilu z dysku");
+                            frmProgressBar.lblAction.Text = $"Usuwam z dysku katalog z profilem o nazwie: {profile}";
+                            frmProgressBar.lblAction.Location = new Point(100, 217);
+                            frmProgressBar.Show();
+                            frmProgressBar.Refresh();
+
+
+                            if (File.Exists(psexecPath))
+                            {
+
+                                // Uruchomienie PsExec do usunięcia katalogu profilu
+                                ProcessStartInfo startInfo = new ProcessStartInfo
+                                {
+                                    FileName = psexecPath,
+                                    Arguments = $"-nobanner -accepteula -i -s \\\\{pcName} -w C:\\Skrypty\\ cmd.exe /c run_deleteProfileFolder.cmd {profile}",
+                                    UseShellExecute = false,
+                                    CreateNoWindow = true
+                                };
+
+                                try
+                                {
+                                    // Uruchom proces PsExec.exe z określonymi parametrami
+                                    using (Process process = Process.Start(startInfo))  // Uruchomienie procesu
+                                    {
+                                        process.WaitForExit();  // Czekaj na zakończenie procesu
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show($"Nie udało się uruchomić PsExec: {ex.Message}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    return;  // Przerwij wykonywanie metody, jeśli wystąpił błąd
+                                }
+
+
+                            }
+                            //Thread.Sleep(2000);
+
+                            // Sprawdzenie statusu usuwania
+                            string[] testFiles = { "errorDelete.txt", "finishDelete.txt" };
+                            bool continueLoop = true;
+
+                            while (continueLoop)
+                            {
+                                foreach (string file in testFiles)
+                                {
+                                    string filePath = Path.Combine(destination, file);
+                                    if (File.Exists(filePath))
+                                    {
+                                        if (file == "errorDelete.txt")
+                                        {
+                                            frmProgressBar.Close();
+                                            MessageBox.Show($"Nie udało się usunąć w całości folderu {profilePath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                        }
+                                        if (file == "finishDelete.txt")
+                                        {
+                                            frmProgressBar.Close();
+                                            MessageBox.Show($"Usunięto z dysku profil {profilePath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                        }
+
+                                        continueLoop = false;
+
+                                        // Usuwanie plików statusu
+                                        foreach (string finishFile in testFiles)
+                                        {
+                                            string finishFilePath = Path.Combine(destination, finishFile);
+                                            if (File.Exists(finishFilePath))
+                                            {
+                                                File.Delete(finishFilePath);
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                                Thread.Sleep(1000);
+                            }
+
+                            // Resetowanie ComboBoxa
+                            fillListBoxProfilesFromDisk();
+                        }
+                        else
+                        {
+                            MessageBox.Show("Nie udało się uruchomić skryptu.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+
+                        // Sprawdzenie czy profil nadal istnieje
+                        if (Directory.Exists(profilePath))
+                        {
+                            fillListBoxProfilesFromDisk();
+                            MessageBox.Show($"Przerwano operację usuwania profilu {profile} \nlub nie usunięto katalogu z profilem w całości.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            fillListBoxProfilesFromDisk();
+                            MessageBox.Show($"Usunięto katalog {profilePath}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        }
+                    }
+                    else
+                    {
+                          MessageBox.Show($"Nie znaleziono profilu {profilePath} \nna komputerze {pcName}.", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Błąd podczas próby dostępu do dysku na komputerze {pcName}. {ex.Message}", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            else
+            {
+                MessageBox.Show($"Usuwanie z dysku profilu {profile} zostało anulowane", "Informacja", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
 
     }
 }

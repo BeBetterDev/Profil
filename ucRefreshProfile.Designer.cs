@@ -112,7 +112,7 @@
             this.btnInwentaryzacja.Name = "btnInwentaryzacja";
             this.btnInwentaryzacja.Size = new System.Drawing.Size(280, 44);
             this.btnInwentaryzacja.TabIndex = 31;
-            this.btnInwentaryzacja.Text = "Inwentaryzacja profilu [ ? ]";
+            this.btnInwentaryzacja.Text = "Inwentaryzacja profilu [ OK ]";
             this.btnInwentaryzacja.UseVisualStyleBackColor = false;
             this.btnInwentaryzacja.Click += new System.EventHandler(this.btnInwentaryzacja_Click);
             // 
@@ -156,7 +156,7 @@
             this.btnRestoreUserData.Name = "btnRestoreUserData";
             this.btnRestoreUserData.Size = new System.Drawing.Size(294, 44);
             this.btnRestoreUserData.TabIndex = 37;
-            this.btnRestoreUserData.Text = "Przywrócenie danych użytkownika [  ? ]";
+            this.btnRestoreUserData.Text = "Przywrócenie danych użytkownika [ OK ]";
             this.btnRestoreUserData.UseVisualStyleBackColor = false;
             this.btnRestoreUserData.Click += new System.EventHandler(this.btnRestoreUserData_Click);
             // 
@@ -227,7 +227,7 @@
             this.btnExportProfileFromregister.Name = "btnExportProfileFromregister";
             this.btnExportProfileFromregister.Size = new System.Drawing.Size(280, 44);
             this.btnExportProfileFromregister.TabIndex = 32;
-            this.btnExportProfileFromregister.Text = "Export profilu z rejestru [ ? ]";
+            this.btnExportProfileFromregister.Text = "Export profilu z rejestru [ OK ]";
             this.btnExportProfileFromregister.UseVisualStyleBackColor = false;
             this.btnExportProfileFromregister.Click += new System.EventHandler(this.btnExportProfileFromregister_Click);
             // 
